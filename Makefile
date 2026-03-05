@@ -5,8 +5,8 @@ LDFLAGS = -luuid
 all: raft
 .PHONY: all
 
-main.o: main.c log.h
-	$(CC) $(CFLAGS) -c main.c
+main.o: main.c error.h log.h cmd.h
+	$(CC) $(CFLAGS) -c main.c 
 
 raft: main.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o raft main.o
