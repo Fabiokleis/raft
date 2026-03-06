@@ -1,10 +1,7 @@
 #ifndef CMD_H
 #define CMD_H
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include "error.h"
+#include "consts.h"
 
 #define CMD_KEY_MAX_SIZE 16
 #define CMD_VALUE_MAX_SIZE 512
@@ -26,11 +23,16 @@ static const char *COMMANDS[] = {
 };
 
 Command command_(CommandType type, const char* key, const char* value);
-Result serialize_command(const Command cmd, size_t* out_size, uint8_t** out_buffer);
-Result deserialize_command(const uint8_t* buffer, size_t size, Command* out_cmd);
+Result serialize_command(const Command cmd, size_t* out_size, u8** out_buffer);
+Result deserialize_command(const u8* buffer, size_t size, Command* out_cmd);
 void print_command(const Command cmd);
 
 #ifdef COMMAND_IMPLEMENTATION
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
 
 Command command(CommandType type, const char* key, const char* value) {
     assert(type < MAX_COMMANDS);
@@ -46,12 +48,12 @@ Command command(CommandType type, const char* key, const char* value) {
     return cmd;
 }
 
-Result serialize_command(const Command cmd, size_t* out_size, uint8_t** out_buffer) {
+Result serialize_command(const Command cmd, size_t* out_size, u8** out_buffer) {
     size_t key_len = strlen(cmd.key);
     size_t value_len = strlen(cmd.value);
     *out_size = sizeof(CommandType) + sizeof(size_t) + key_len + sizeof(size_t) + value_len;
 
-    uint8_t* buffer = (uint8_t*) malloc(*out_size);
+    u8* buffer = (u8 *) malloc(*out_size);
     if (buffer == NULL) {
         fprintf(stderr, "Failed to allocate memory for command serialization\n");
         return ERROR;
@@ -74,7 +76,7 @@ Result serialize_command(const Command cmd, size_t* out_size, uint8_t** out_buff
     return SUCCESS;
 }
 
-Result deserialize_command(const uint8_t* buffer, size_t size, Command* out_cmd) {
+Result deserialize_command(const u8* buffer, size_t size, Command* out_cmd) {
     if (size < sizeof(CommandType) + 2 * sizeof(size_t)) {
         fprintf(stderr, "Buffer too small for command deserialization\n");
         return ERROR;

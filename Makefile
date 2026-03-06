@@ -1,11 +1,11 @@
 CC = clang
 CFLAGS = -Wall -Wextra -Werror -Wpedantic -g
-LDFLAGS = -luuid
+LDFLAGS = -lm
 
 all: raft
 .PHONY: all
 
-main.o: main.c error.h log.h cmd.h
+main.o: main.c consts.h log.h cmd.h
 	$(CC) $(CFLAGS) -c main.c 
 
 raft: main.o

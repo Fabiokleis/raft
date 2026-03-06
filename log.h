@@ -2,18 +2,13 @@
 #define LOG_H
 
 #include <stdio.h>
-#include <stdint.h>
 #include <stdlib.h>
-#include <uuid/uuid.h>
-#include "error.h"
-
-#define RECORD_MAX_SIZE 1024
-#define ID_SIZE UUID_STR_LEN
+#include "consts.h"
 
 typedef struct {
-    char id[ID_SIZE];
+    log_id_t id;
     size_t size;
-    uint8_t *value;
+    u8 *value;
 } Record;
 
 typedef struct {
@@ -23,6 +18,7 @@ typedef struct {
 } Document;
 
 typedef struct {
+    log_id_t id_sequence;
     const char* filename;
     FILE* file;
     Document* document;
@@ -30,8 +26,8 @@ typedef struct {
 } Log;
 
 
-char* uuid(void);
-Record* record_new(const char id[ID_SIZE], size_t value_size, uint8_t *value);
+log_id_t id(Log* log);
+Record* record_new(log_id_t id, size_t value_size, u8 *value);
 Document* document_new(void);
 Log* log_new(const char* filename);
 void print_document(const Document* document);
@@ -39,31 +35,29 @@ Result append_record(Document* document, Record* record);
 Result log_record(Log* log, Record* record);
 Result log_load(Log* log);
 Result log_free(Log* log);
+
 #ifdef LOG_IMPLEMENTATION
 
+#include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
+#include <unistd.h>
 
-char* uuid(void) {
-    uuid_t binuuid;
-    uuid_generate_random(binuuid);
-    char *uuid_str = malloc(UUID_STR_LEN);
-    uuid_unparse_lower(binuuid, uuid_str);
-    return uuid_str;
+log_id_t id(Log* log) {
+    assert(log != NULL);
+    return log->id_sequence + 1;
 }
 
-Record* record_new(const char id[ID_SIZE], size_t value_size, uint8_t *value) {
-    assert(id != NULL);
+Record* record_new(log_id_t id, size_t value_size, u8 *value) {
     assert(value != NULL);
     assert(value_size <= RECORD_MAX_SIZE - 1);
 
-    Record* record = (Record*) malloc(sizeof(Record));
+    Record* record = (Record *) malloc(sizeof(Record));
 
-    memcpy(record->id, id, ID_SIZE);
-
+    record->id = id;
     record->size = value_size;
-    record->value = (uint8_t*) malloc((record->size + 1) * sizeof(uint8_t));
+    record->value = (u8 *) malloc((record->size + 1) * sizeof(u8));
 
     memcpy(record->value, value, record->size);
     record->value[record->size] = '\0';
@@ -82,12 +76,13 @@ Document* document_new(void) {
 Log* log_new(const char* filename) {
     assert(filename != NULL);
 
-    Log* log = (Log*) malloc(sizeof(Log));
+    Log* log = (Log *) malloc(sizeof(Log));
     if ((log->file = fopen(filename, "ab")) == NULL) {
         fprintf(stderr, "Failed to open log file: %s\n", filename);
         free(log);
         exit(1);
     }
+    log->id_sequence = 0;
     log->filename = filename;
     log->document = document_new();
     log->cursor = 0;
@@ -112,7 +107,7 @@ Result append_record(Document *document, Record *record) {
 }
 
 static void print_record(const Record* record) {
-    printf("[*] %s %u %s\n", record->id, record->size, record->value);
+    printf("[*] %llu %u %s\n", record->id, record->size, record->value);
 }
 
 void print_document(const Document* document) {
@@ -122,13 +117,13 @@ void print_document(const Document* document) {
 }
 
 static Result write_id(Log *log, Record *record) {
-    size_t written_id = fwrite(record->id, sizeof(char), ID_SIZE, log->file);
+    size_t written_id = fwrite(&record->id, sizeof(log_id_t), 1, log->file);
     if (errno != 0) {
         fprintf(stderr, "Error writing record ID to log file: %s\n", strerror(errno));
         return ERROR;
     }
 
-    if (written_id != ID_SIZE) {
+    if (written_id != 1) {
         fprintf(stderr, "Failed to write record ID to log file\n");
         return ERROR;
     }
@@ -150,7 +145,7 @@ static Result write_value_sz(Log *log, Record *record) {
 }
 
 static Result write_value(Log *log, Record *record) {
-    size_t written_value = fwrite(record->value, sizeof(uint8_t), record->size, log->file);
+    size_t written_value = fwrite(record->value, sizeof(u8), record->size, log->file);
     if (errno != 0) {
         fprintf(stderr, "Error writing record value to log file: %s\n", strerror(errno));
         return ERROR;
@@ -173,13 +168,27 @@ Result log_record(Log *log, Record *record) {
     if ((err = write_value_sz(log, record)) != SUCCESS) return ERROR;
     if ((err = write_value(log, record)) != SUCCESS) return ERROR;
 
+#ifdef FSYNC
+
+    if (fflush(log->file) != 0) {
+        fprintf(stderr, "Error flushing log file: %s\n", strerror(errno));
+        return ERROR;
+    }
+
+    if (fsync(fileno(log->file)) != 0) {
+        fprintf(stderr, "Error syncing log file: %s\n", strerror(errno));
+        return ERROR;
+    }
+#endif
+
+    log->id_sequence = record->id;
     log->cursor++;
 #endif
     return SUCCESS;
 }
 
-static Result reads_id(Log *log, char* id_buff) {
-    size_t read_id = fread(id_buff, sizeof(char), ID_SIZE, log->file);
+static Result reads_id(Log *log, log_id_t* id_buff) {
+    size_t read_id = fread(id_buff, sizeof(log_id_t), 1, log->file);
 
     if (read_id == 0 && feof(log->file)) return LOG_EOF;    
 
@@ -188,12 +197,10 @@ static Result reads_id(Log *log, char* id_buff) {
         return ERROR;
     }
     
-    if (read_id != ID_SIZE) {
+    if (read_id != 1) {
         fprintf(stderr, "Error reading record ID from log file: %s\n", strerror(errno));
         return ERROR;
     }
-
-    id_buff[ID_SIZE - 1] = '\0';
     return SUCCESS;
 }
 
@@ -211,8 +218,8 @@ static Result read_value_size(Log *log, size_t* value_size) {
     return SUCCESS;
 }
 
-static Result read_value(Log *log, uint8_t* value_buff, size_t value_size) {
-    size_t read_value = fread(value_buff, sizeof(uint8_t), value_size, log->file);
+static Result read_value(Log *log, u8* value_buff, size_t value_size) {
+    size_t read_value = fread(value_buff, sizeof(u8), value_size, log->file);
     if (errno != 0) {
         fprintf(stderr, "Error reading record value from log file: %s\n", strerror(errno));
         return ERROR;
@@ -227,11 +234,11 @@ static Result read_value(Log *log, uint8_t* value_buff, size_t value_size) {
 }
 
 static Result read_record(Log *log) {
-    char id_buff[ID_SIZE];
-    uint8_t* value_buff;
+    log_id_t id_buff;
+    u8* value_buff;
     size_t value_size;
 
-    switch (reads_id(log, id_buff)) {
+    switch (reads_id(log, &id_buff)) {
         case SUCCESS:
             break;
         case LOG_EOF:
@@ -242,7 +249,7 @@ static Result read_record(Log *log) {
     
     if (read_value_size(log, &value_size) != SUCCESS) return ERROR;
 
-    value_buff = (uint8_t*) malloc((value_size + 1) * sizeof(uint8_t));
+    value_buff = (u8 *) malloc((value_size + 1) * sizeof(u8));
     if (read_value(log, value_buff, value_size) != SUCCESS) {
         free(value_buff);
         return ERROR;
@@ -267,6 +274,9 @@ Result log_load(Log* log) {
         Result err = read_record(log);
         if (err == LOG_EOF) break;
         if (err != SUCCESS) return ERROR;
+    }
+    if (log->document->size > 0) {
+        log->id_sequence = log->document->records[log->document->size - 1].id;
     }
     return SUCCESS;
 }
