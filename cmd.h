@@ -3,9 +3,6 @@
 
 #include "consts.h"
 
-#define CMD_KEY_MAX_SIZE 16
-#define CMD_VALUE_MAX_SIZE 512
-
 typedef enum {
     SET,
     MAX_COMMANDS,
@@ -108,6 +105,16 @@ Result deserialize_command(const u8* buffer, size_t size, Command* out_cmd) {
     out_cmd->value[value_len] = '\0';
 
     return SUCCESS;
+}
+
+const char* decoder_command(const u8* buffer, size_t size) {
+    Command cmd;
+    if (deserialize_command(buffer, size, &cmd) != SUCCESS) {
+        return "Deserialization failed";
+    }
+    static char output[CMD_KEY_MAX_SIZE + CMD_VALUE_MAX_SIZE + 32];
+    snprintf(output, sizeof(output), "%s %s %s", COMMANDS[cmd.type], cmd.key, cmd.value);
+    return output;
 }
 
 void print_command(const Command cmd) {

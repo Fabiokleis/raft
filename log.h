@@ -6,7 +6,7 @@
 #include "consts.h"
 
 typedef struct {
-    log_id_t id;
+    u64 id;
     size_t size;
     u8 *value;
 } Record;
@@ -18,7 +18,7 @@ typedef struct {
 } Document;
 
 typedef struct {
-    log_id_t id_sequence;
+    u64 id_sequence;
     const char* filename;
     FILE* file;
     Document* document;
@@ -26,11 +26,11 @@ typedef struct {
 } Log;
 
 
-log_id_t id(Log* log);
-Record* record_new(log_id_t id, size_t value_size, u8 *value);
+u64 id(Log* log);
+Record* record_new(u64 id, size_t value_size, u8 *value);
 Document* document_new(void);
 Log* log_new(const char* filename);
-void print_document(const Document* document);
+void print_document(const Document* document, decoder* decode);
 Result append_record(Document* document, Record* record);
 Result log_record(Log* log, Record* record);
 Result log_load(Log* log);
@@ -44,12 +44,12 @@ Result log_free(Log* log);
 #include <errno.h>
 #include <unistd.h>
 
-log_id_t id(Log* log) {
+u64 id(Log* log) {
     assert(log != NULL);
     return log->id_sequence + 1;
 }
 
-Record* record_new(log_id_t id, size_t value_size, u8 *value) {
+Record* record_new(u64 id, size_t value_size, u8 *value) {
     assert(value != NULL);
     assert(value_size <= RECORD_MAX_SIZE - 1);
 
@@ -106,18 +106,19 @@ Result append_record(Document *document, Record *record) {
     return SUCCESS;
 }
 
-static void print_record(const Record* record) {
-    printf("[*] %llu %u %s\n", record->id, record->size, record->value);
+static void print_record(const Record* record, decoder* decode) {
+    const char* decoded_value = decode(record->value, record->size);
+    printf("[*] %llu %s\n", record->id, decoded_value);
 }
 
-void print_document(const Document* document) {
+void print_document(const Document* document, decoder* decode) {
     for (size_t i = 0; i < document->size; i++) {
-        print_record(&document->records[i]);
+        print_record(&document->records[i], decode);
     }
 }
 
 static Result write_id(Log *log, Record *record) {
-    size_t written_id = fwrite(&record->id, sizeof(log_id_t), 1, log->file);
+    size_t written_id = fwrite(&record->id, sizeof(u64), 1, log->file);
     if (errno != 0) {
         fprintf(stderr, "Error writing record ID to log file: %s\n", strerror(errno));
         return ERROR;
@@ -169,7 +170,6 @@ Result log_record(Log *log, Record *record) {
     if ((err = write_value(log, record)) != SUCCESS) return ERROR;
 
 #ifdef FSYNC
-
     if (fflush(log->file) != 0) {
         fprintf(stderr, "Error flushing log file: %s\n", strerror(errno));
         return ERROR;
@@ -187,8 +187,8 @@ Result log_record(Log *log, Record *record) {
     return SUCCESS;
 }
 
-static Result reads_id(Log *log, log_id_t* id_buff) {
-    size_t read_id = fread(id_buff, sizeof(log_id_t), 1, log->file);
+static Result reads_id(Log *log, u64* id_buff) {
+    size_t read_id = fread(id_buff, sizeof(u64), 1, log->file);
 
     if (read_id == 0 && feof(log->file)) return LOG_EOF;    
 
@@ -234,7 +234,7 @@ static Result read_value(Log *log, u8* value_buff, size_t value_size) {
 }
 
 static Result read_record(Log *log) {
-    log_id_t id_buff;
+    u64 id_buff;
     u8* value_buff;
     size_t value_size;
 
@@ -267,7 +267,7 @@ Result log_load(Log* log) {
     assert(log != NULL);
     fclose(log->file);
     if ((log->file = fopen(log->filename, "rb")) == NULL) {
-        fprintf(stderr, "Failed to open log file for reading: %s\n", log->filename);
+        fprintf(stderr, "Failed to open log file for reading: %s %s\n", log->filename, strerror(errno));
         return ERROR;
     }
     for (;;) {
@@ -275,9 +275,18 @@ Result log_load(Log* log) {
         if (err == LOG_EOF) break;
         if (err != SUCCESS) return ERROR;
     }
+
+    printf("log id sequence after loading: %llu\n", log->id_sequence);
+    fclose(log->file);
+    log->file = fopen(log->filename, "ab");
+    if (log->file == NULL) {
+        fprintf(stderr, "Failed to open log file for appending: %s %s\n", log->filename, strerror(errno));
+        return ERROR;
+    }
     if (log->document->size > 0) {
         log->id_sequence = log->document->records[log->document->size - 1].id;
     }
+
     return SUCCESS;
 }
 
