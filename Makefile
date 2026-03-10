@@ -5,7 +5,7 @@ LDFLAGS = -lm
 all: raft
 .PHONY: all
 
-main.o: main.c consts.h log.h cmd.h state.h
+main.o: main.c consts.h log.h cmd.h state.h raft.h
 	$(CC) $(CFLAGS) -c main.c 
 
 raft: main.o

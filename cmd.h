@@ -16,12 +16,12 @@ typedef struct {
 
 static const char *COMMANDS[] = {
     [SET] = "SET",
-    NULL,
+    [MAX_COMMANDS] = NULL,
 };
 
-Command command_(CommandType type, const char* key, const char* value);
-Result serialize_command(const Command cmd, size_t* out_size, u8** out_buffer);
-Result deserialize_command(const u8* buffer, size_t size, Command* out_cmd);
+Command command_(CommandType type, const char *key, const char *value);
+Result serialize_command(const Command cmd, size_t* out_size, u8 **out_buffer);
+Result deserialize_command(const u8 *buffer, size_t size, Command *out_cmd);
 void print_command(const Command cmd);
 
 #ifdef COMMAND_IMPLEMENTATION
@@ -31,7 +31,7 @@ void print_command(const Command cmd);
 #include <string.h>
 #include <assert.h>
 
-Command command(CommandType type, const char* key, const char* value) {
+Command command(CommandType type, const char *key, const char *value) {
     assert(type < MAX_COMMANDS);
     assert(key != NULL);
     assert(value != NULL);
@@ -50,9 +50,9 @@ Result serialize_command(const Command cmd, size_t* out_size, u8** out_buffer) {
     size_t value_len = strlen(cmd.value);
     *out_size = sizeof(CommandType) + sizeof(size_t) + key_len + sizeof(size_t) + value_len;
 
-    u8* buffer = (u8 *) malloc(*out_size);
+    u8 *buffer = (u8 *) malloc(*out_size);
     if (buffer == NULL) {
-        fprintf(stderr, "Failed to allocate memory for command serialization\n");
+        fprintf(stderr, "failed to allocate memory for command serialization\n");
         return ERROR;
     }
 
@@ -73,9 +73,9 @@ Result serialize_command(const Command cmd, size_t* out_size, u8** out_buffer) {
     return SUCCESS;
 }
 
-Result deserialize_command(const u8* buffer, size_t size, Command* out_cmd) {
+Result deserialize_command(const u8 *buffer, size_t size, Command *out_cmd) {
     if (size < sizeof(CommandType) + 2 * sizeof(size_t)) {
-        fprintf(stderr, "Buffer too small for command deserialization\n");
+        fprintf(stderr, "buffer too small for command deserialization\n");
         return ERROR;
     }
 
@@ -87,7 +87,7 @@ Result deserialize_command(const u8* buffer, size_t size, Command* out_cmd) {
     memcpy(&key_len, buffer + offset, sizeof(size_t));
     offset += sizeof(size_t);
     if (offset + key_len > size) {
-        fprintf(stderr, "Buffer too small for key deserialization\n");
+        fprintf(stderr, "buffer too small for key deserialization\n");
         return ERROR;
     }
     memcpy(out_cmd->key, buffer + offset, key_len);
@@ -98,7 +98,7 @@ Result deserialize_command(const u8* buffer, size_t size, Command* out_cmd) {
     memcpy(&value_len, buffer + offset, sizeof(size_t));
     offset += sizeof(size_t);
     if (offset + value_len > size) {
-        fprintf(stderr, "Buffer too small for value deserialization\n");
+        fprintf(stderr, "buffer too small for value deserialization\n");
         return ERROR;
     }
     memcpy(out_cmd->value, buffer + offset, value_len);
@@ -107,10 +107,10 @@ Result deserialize_command(const u8* buffer, size_t size, Command* out_cmd) {
     return SUCCESS;
 }
 
-const char* decoder_command(const u8* buffer, size_t size) {
+const char *decoder_command(const u8 *buffer, size_t size) {
     Command cmd;
     if (deserialize_command(buffer, size, &cmd) != SUCCESS) {
-        return "Deserialization failed";
+        return "deserialization failed";
     }
     static char output[CMD_KEY_MAX_SIZE + CMD_VALUE_MAX_SIZE + 32];
     snprintf(output, sizeof(output), "%s %s %s", COMMANDS[cmd.type], cmd.key, cmd.value);
@@ -118,9 +118,9 @@ const char* decoder_command(const u8* buffer, size_t size) {
 }
 
 void print_command(const Command cmd) {
-    printf("Command Type: %s\n", COMMANDS[cmd.type]);
-    printf("Key: %s\n", cmd.key);
-    printf("Value: %s\n", cmd.value);
+    printf("command type: %s\n", COMMANDS[cmd.type]);
+    printf("key: %s\n", cmd.key);
+    printf("value: %s\n", cmd.value);
 }
 
 #endif // COMMAND_IMPLEMENTATION

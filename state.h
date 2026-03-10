@@ -113,7 +113,7 @@ Result state_debug(StateM* state) {
     assert(state != NULL);
     for (size_t i = 0; i < state->size; i++) {
         if (state->entries[i].active) {
-            printf("%s: %s\n", state->entries[i].key, state->entries[i].value);
+            printf("[*]{ %s: %s }\n", state->entries[i].key, state->entries[i].value);
         }
     }
     return SUCCESS;
