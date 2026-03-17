@@ -192,10 +192,13 @@ Result log_record(Log *log, Record *record) {
         return ERROR;
     }
 
+#ifdef _POSIX_C_SOURCE
     if (fsync(fileno(log->file)) != 0) {
         fprintf(stderr, "error syncing log file: %s\n", strerror(errno));
         return ERROR;
     }
+#endif
+    
 #endif
 
     log->id_sequence = record->id;

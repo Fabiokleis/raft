@@ -1,7 +1,6 @@
-#include <stdio.h>
-
 #include "consts.h"
 
+#include <stdio.h>
 #define LOG_IMPLEMENTATION
 #define LOG_PERSIST
 #define FSYNC
