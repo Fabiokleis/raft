@@ -27,7 +27,7 @@ typedef struct {
 } Log;
 
 
-u64 id(Log *log);
+u64 lid(Log *log);
 Record* record_new(u64 id, u64 term, size_t value_size, u8 *value);
 Document* document_new(void);
 Log* log_new(const char *filename);
@@ -45,7 +45,7 @@ Result log_free(Log *log);
 #include <errno.h>
 #include <unistd.h>
 
-u64 id(Log* log) {
+u64 lid(Log *log) {
     assert(log != NULL);
     return log->id_sequence + 1;
 }

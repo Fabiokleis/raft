@@ -1,6 +1,8 @@
 #ifndef ERROR_H
 #define ERROR_H
 
+#include <stddef.h>
+
 #define RECORD_MAX_SIZE 1024
 #define CMD_KEY_MAX_SIZE 16
 #define CMD_VALUE_MAX_SIZE 512

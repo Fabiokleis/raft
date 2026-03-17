@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
     print_document(log->document, decoder_command);
 
     if (log->document->size == 0) {
-        if ((err = log_record(log, record_new(id(log), TERM, cmd_buffer_size, cmd_buffer))) != SUCCESS) return 1;
+        if ((err = log_record(log, record_new(lid(log), TERM, cmd_buffer_size, cmd_buffer))) != SUCCESS) return 1;
         printf("log: \n");
         print_document(log->document, decoder_command);
     }
