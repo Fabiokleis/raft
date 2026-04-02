@@ -27,7 +27,7 @@ typedef struct {
 } Log;
 
 
-u64 id(Log *log);
+u64 lid(Log *log);
 Record* record_new(u64 id, u64 term, size_t value_size, u8 *value);
 Document* document_new(void);
 Log* log_new(const char *filename);
@@ -45,7 +45,7 @@ Result log_free(Log *log);
 #include <errno.h>
 #include <unistd.h>
 
-u64 id(Log* log) {
+u64 lid(Log *log) {
     assert(log != NULL);
     return log->id_sequence + 1;
 }
@@ -192,10 +192,13 @@ Result log_record(Log *log, Record *record) {
         return ERROR;
     }
 
+#ifdef _POSIX_C_SOURCE
     if (fsync(fileno(log->file)) != 0) {
         fprintf(stderr, "error syncing log file: %s\n", strerror(errno));
         return ERROR;
     }
+#endif
+    
 #endif
 
     log->id_sequence = record->id;
