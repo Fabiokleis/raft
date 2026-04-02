@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
     printf("\n\nMEMORY STATE AFTER APPLYING COMMANDS: \n");
     state_debug(state);
 
-    if ((err =loop(node, log, PORT)) != SUCCESS) return 1;
+    if ((err = loop(node, log, PORT)) != SUCCESS) return 1;
 
     raft_node_free(node);
     state_free(state);

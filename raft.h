@@ -168,6 +168,7 @@ static void handle_raft_packet(int client_fd, RaftNode *node, Log *log) {
         case REQUEST_VOTE_REPLY: {
             handle_request_vote_reply(client_fd, &header, node, log);
         } break;
+        case MAX_HEADERS:
         default: {
             printf("[*] read packet with invalid header: %u\n", header.type);
             break;
